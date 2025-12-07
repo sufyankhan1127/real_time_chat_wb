@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Redis Pub/Sub Chat</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .chat-container { width: 400px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; background: #fafafa; border-radius: 5px; }
+        .message { padding: 5px 10px; margin: 5px 0; border-radius: 5px; background: #e1ffc7; font-size: 14px; }
+        .input-group { display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #218838; }
+        #status { font-size: 12px; color: gray; text-align: right; margin-bottom: 5px;}
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body>
+    <div class="chat-container">
+        <h2 style="text-align:center;">Java + Redis Chat</h2>
+        <div id="status">Connecting...</div>
+        <div class="messages" id="messageArea"></div>
+        <div class="input-group">
+            <input type="text" id="sender" placeholder="Name" value="User1" style="width:30%;">
+            <input type="text" id="message" placeholder="Type a message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+    <script>
+        let stompClient = null;
+        function connect() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.debug = null; 
+            stompClient.connect({}, function (frame) {
+                document.getElementById("status").innerText = "Connected ?";
+                stompClient.subscribe('/topic/public', function (messageOutput) {
+                    showMessage(JSON.parse(messageOutput.body));
+                });
+            });
+        }
+        function sendMessage() {
+            const sender = document.getElementById("sender").value;
+            const content = document.getElementById("message").value;
+            if(content && stompClient) {
+                const chatMessage = { sender: sender, content: content, timestamp: new Date().toLocaleTimeString() };
+                stompClient.send("/app/sendMessage", {}, JSON.stringify(chatMessage));
+                document.getElementById("message").value = '';
+            }
+        }
+        function showMessage(message) {
+            const messageArea = document.getElementById("messageArea");
+            const div = document.createElement('div');
+            div.className = "message";
+            div.innerHTML = '<strong>' + message.sender + '</strong>: ' + message.content + ' <span style="font-size:10px;color:grey;">' + message.timestamp + '</span>';
+            messageArea.appendChild(div);
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+        connect();
+    </script>
+</body>
+</html>
