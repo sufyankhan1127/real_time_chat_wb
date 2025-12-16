@@ -1,0 +1,6 @@
+com\app\rtc\RedisMessageSubscriber.class
+com\app\rtc\RedisConfig.class
+com\app\rtc\ChatController.class
+com\app\rtc\ChatController$ChatMessage.class
+com\app\rtc\WebSocketConfig.class
+com\app\rtc\RealTimeApplication.class

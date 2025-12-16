@@ -1,0 +1,29 @@
+=== HOW TO RUN THIS PROJECT (STEP BY STEP) ===
+
+STEP 1: START REDIS (Database)
+---------------------------------------------
+Option A (Docker):
+   docker start redis-chat
+   (If that fails, create it: docker run --name redis-chat -p 6379:6379 -d redis)
+
+Option B (Windows Exe):
+   Go to your Redis folder.
+   Double-click 'redis-server.exe'.
+   Keep the black window OPEN.
+
+STEP 2: BUILD THE CODE (Only if you changed code)
+---------------------------------------------
+Open Terminal in this folder and run:
+   mvn clean package -DskipTests
+
+STEP 3: RUN THE APP
+---------------------------------------------
+Run on Port 8080:
+   java -jar target/rtc-1.0.0.jar --server.port=8080
+
+(Optional) Run a second instance to test scaling:
+   java -jar target/rtc-1.0.0.jar --server.port=8081
+
+STEP 4: USE IT
+---------------------------------------------
+Open Browser: http://localhost:8080

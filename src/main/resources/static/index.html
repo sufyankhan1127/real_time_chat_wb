@@ -2,63 +2,107 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Redis Pub/Sub Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Connect</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .chat-container { width: 400px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; background: #fafafa; border-radius: 5px; }
-        .message { padding: 5px 10px; margin: 5px 0; border-radius: 5px; background: #e1ffc7; font-size: 14px; }
-        .input-group { display: flex; gap: 10px; }
-        input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
-        button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        button:hover { background: #218838; }
-        #status { font-size: 12px; color: gray; text-align: right; margin-bottom: 5px;}
+        :root { --bg-color: #1a1a1a; --chat-bg: #2d2d2d; --primary: #3b82f6; --mine: #3b82f6; --theirs: #404040; --text: #ffffff; --text-secondary: #a3a3a3; }
+        body { font-family: sans-serif; background-color: var(--bg-color); color: var(--text); margin: 0; display: flex; justify-content: center; height: 100vh; overflow: hidden; }
+        
+        /* LOGIN */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        .login-box { background: var(--chat-bg); padding: 40px; border-radius: 12px; text-align: center; width: 300px; }
+        input { width: 100%; padding: 12px; margin: 15px 0; border-radius: 6px; border: 1px solid #555; background: #333; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+        /* APP */
+        .app-container { width: 100%; max-width: 800px; display: none; flex-direction: column; height: 100vh; background: var(--chat-bg); }
+        .header { padding: 20px; border-bottom: 1px solid #444; background: #252525; display: flex; align-items: center; gap: 10px; }
+        .status-dot { width: 10px; height: 10px; background-color: #22c55e; border-radius: 50%; display: inline-block; }
+        
+        .chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        
+        .message-wrapper { display: flex; gap: 10px; max-width: 70%; }
+        .message-wrapper.mine { align-self: flex-end; flex-direction: row-reverse; }
+        .message-wrapper.theirs { align-self: flex-start; }
+        
+        .bubble { padding: 10px 15px; border-radius: 15px; font-size: 14px; }
+        .mine .bubble { background: var(--mine); color: white; }
+        .theirs .bubble { background: var(--theirs); color: white; }
+        
+        .input-area { padding: 20px; background: #252525; display: flex; gap: 10px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 </head>
 <body>
-    <div class="chat-container">
-        <h2 style="text-align:center;">Java + Redis Chat</h2>
-        <div id="status">Connecting...</div>
-        <div class="messages" id="messageArea"></div>
-        <div class="input-group">
-            <input type="text" id="sender" placeholder="Name" value="User1" style="width:30%;">
+
+    <!-- LOGIN -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h2>Join Chat</h2>
+            <input type="text" id="username-input" placeholder="Enter Name">
+            <button onclick="enterChat()">Connect</button>
+        </div>
+    </div>
+
+    <!-- MAIN UI -->
+    <div class="app-container" id="app-ui">
+        <div class="header">
+            <span class="status-dot"></span> <strong>Global Channel</strong>
+        </div>
+        <div class="chat-area" id="messageArea"></div>
+        <div class="input-area">
             <input type="text" id="message" placeholder="Type a message...">
             <button onclick="sendMessage()">Send</button>
         </div>
     </div>
+
     <script>
         let stompClient = null;
+        let username = null;
+
+        function enterChat() {
+            const input = document.getElementById("username-input");
+            if (input.value.trim()) {
+                username = input.value.trim();
+                document.getElementById("login-screen").style.display = "none";
+                document.getElementById("app-ui").style.display = "flex";
+                connect();
+            }
+        }
+
         function connect() {
             const socket = new SockJS('/ws');
             stompClient = Stomp.over(socket);
-            stompClient.debug = null; 
-            stompClient.connect({}, function (frame) {
-                document.getElementById("status").innerText = "Connected ?";
-                stompClient.subscribe('/topic/public', function (messageOutput) {
-                    showMessage(JSON.parse(messageOutput.body));
+            stompClient.debug = null;
+            stompClient.connect({}, function () {
+                stompClient.subscribe('/topic/public', function (payload) {
+                    showMessage(JSON.parse(payload.body));
                 });
-            });
+            }, function(err) { console.error(err); });
         }
+
         function sendMessage() {
-            const sender = document.getElementById("sender").value;
-            const content = document.getElementById("message").value;
-            if(content && stompClient) {
-                const chatMessage = { sender: sender, content: content, timestamp: new Date().toLocaleTimeString() };
-                stompClient.send("/app/sendMessage", {}, JSON.stringify(chatMessage));
-                document.getElementById("message").value = '';
+            const input = document.getElementById("message");
+            if(input.value.trim() && stompClient) {
+                const msg = { sender: username, content: input.value.trim(), timestamp: new Date().toLocaleTimeString() };
+                stompClient.send("/app/sendMessage", {}, JSON.stringify(msg));
+                input.value = '';
             }
         }
-        function showMessage(message) {
-            const messageArea = document.getElementById("messageArea");
-            const div = document.createElement('div');
-            div.className = "message";
-            div.innerHTML = '<strong>' + message.sender + '</strong>: ' + message.content + ' <span style="font-size:10px;color:grey;">' + message.timestamp + '</span>';
-            messageArea.appendChild(div);
-            messageArea.scrollTop = messageArea.scrollHeight;
+
+        function showMessage(msg) {
+            const area = document.getElementById("messageArea");
+            const isMine = msg.sender === username;
+            const html = `
+                <div class="message-wrapper ${isMine ? 'mine' : 'theirs'}">
+                    <div class="bubble">
+                        <strong>${msg.sender}</strong>: ${msg.content}
+                    </div>
+                </div>`;
+            area.insertAdjacentHTML('beforeend', html);
+            area.scrollTop = area.scrollHeight;
         }
-        connect();
     </script>
 </body>
 </html>
